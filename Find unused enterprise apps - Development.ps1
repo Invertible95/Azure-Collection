@@ -155,13 +155,13 @@ $timeFrameInDays = 90
 
 # Retrieve Enterprise Apps and associated Sign-Ins
 $enterPriseApps = Get-EnterpriseApps
-$interActiveSignInsForApps = Get-SignInsInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
+$interActiveSignIns = Get-SignInsInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
 $nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
 
 # Function to remove inactive Enterprise Apps
 
 function Remove-InactiveEnterpriseApps {
-    $RemoveableApps = $interactiveSignInsForApps.GetEnumerator() | Where-Object { ( $_.Value.Count -eq '0' ) } | `
+    $RemoveableApps = $interactiveSignIns.GetEnumerator() | Where-Object { ( $_.Value.Count -eq '0' ) } | `
         ForEach-Object {
         [PSCustomObject]@{
             AppId       = $_.Key
@@ -178,8 +178,7 @@ function Remove-InactiveEnterpriseApps {
 
 function Export-SignInsToCSV {
     # Export the signInCounts hashtable to CSV
-    $interActiveSignInsForApps = Get-SignInsInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
-    $interactiveSignInsForApps.GetEnumerator() | ForEach-Object {
+    $interactiveSignIns.GetEnumerator() | ForEach-Object {
         [PSCustomObject]@{
             AppId       = $_.Key
             Count       = $_.Value.Count
@@ -187,7 +186,6 @@ function Export-SignInsToCSV {
         }
     } | Export-Csv -Path "C:\temp\SignInCountsInteractive.csv" -NoTypeInformation -Encoding utf8
 
-    $nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterpriseApps -timeFrameInDays $timeFrameInDays
     $nonInteractiveSignIns.GetEnumerator() | ForEach-Object {
         [PSCustomObject]@{
             AppId       = $_.Key
