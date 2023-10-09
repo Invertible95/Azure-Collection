@@ -66,7 +66,7 @@ function Get-SignInsInteractive {
         $progressPercentage = [math]::Round(($currentIteration / $totalIterations) * 100)
         
         # Construct progress status
-        $progressMessage = "Fetching Sign-Ins for Application $($application.appDisplayName) ($currentIteration/$totalIterations) - App ID: $($application.appId)"
+        $progressMessage = "Fetching Interactive Sign-Ins for Application $($application.appDisplayName) ($currentIteration/$totalIterations) - App ID: $($application.appId)"
         Write-Progress -Status "Progress" -PercentComplete $progressPercentage -Activity $progressMessage
         
         # Construct the URL to fetch the count of sign-ins for the current application
@@ -121,7 +121,7 @@ function Get-SignInsNonInteractive {
         $progressPercentage = [math]::Round(($currentIteration / $totalIterations) * 100)
         
         # Construct progress status
-        $progressMessage = "Fetching Sign-Ins for Application $($application.appDisplayName) ($currentIteration/$totalIterations) - App ID: $($application.appId)"
+        $progressMessage = "Fetching Non-Interactive Sign-Ins for Application $($application.appDisplayName) ($currentIteration/$totalIterations) - App ID: $($application.appId)"
         Write-Progress -Status "Progress" -PercentComplete $progressPercentage -Activity $progressMessage
         
         # Construct the URL to fetch the count of sign-ins for the current application
@@ -161,21 +161,19 @@ $nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterPriseApps
 # Function to remove inactive Enterprise Apps
 
 function Remove-InactiveEnterpriseApps {
-    $interActiveSignInsForApps | select Keys
-    $RemoveableApps = $interActiveSignInsForApps.Values | Where-Object { ( $_.Count -eq '0' ) } 
-    $RemoveableApps2 = $interActiveSignInsForApps.Keys
-    
-    foreach ($app in $RemoveableApps) {
-        # Perform any desired action for apps that meet the removal condition
-        if (condition) {
-            <# Action to perform if the condition is true #>
+    $RemoveableApps = $interactiveSignInsForApps.GetEnumerator() | Where-Object { ( $_.Value.Count -eq '0' ) } | `
+        ForEach-Object {
+        [PSCustomObject]@{
+            AppId       = $_.Key
+            Count       = $_.Value.Count
+            DisplayName = $_.Value.DisplayName
         }
     }
+    $RemoveApps = $RemoveableApps.AppId
 
-    $RemoveableApps | ForEach-Object {
-        $eApptoRemove = $_.Keys
-        Remove-MgServicePrincipal -ServicePrincipalId $eApptoRemove
-    } -WhatIf
+        foreach($ServicePrincipalId in $RemoveApps) {
+            Remove-MgServicePrincipal -ServicePrincipalId $ServicePrincipalId -WhatIf
+        }
 }
 
 # Export the signInCounts hashtable to CSV
