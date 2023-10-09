@@ -171,26 +171,29 @@ function Remove-InactiveEnterpriseApps {
     }
     $RemoveApps = $RemoveableApps.AppId
 
-        foreach($ServicePrincipalId in $RemoveApps) {
-            Remove-MgServicePrincipal -ServicePrincipalId $ServicePrincipalId -WhatIf
-        }
+    foreach ($ServicePrincipalId in $RemoveApps) {
+        Remove-MgServicePrincipal -ServicePrincipalId $ServicePrincipalId -WhatIf
+    }
 }
 
-# Export the signInCounts hashtable to CSV
-$interActiveSignInsForApps = Get-SignInsInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
-$interactiveSignInsForApps.GetEnumerator() | ForEach-Object {
-    [PSCustomObject]@{
-        AppId       = $_.Key
-        Count       = $_.Value.Count
-        DisplayName = $_.Value.DisplayName
-    }
-} | Export-Csv -Path "C:\temp\SignInCountsInteractive.csv" -NoTypeInformation -Encoding utf8
+function Export-SignInsToCSV {
+    # Export the signInCounts hashtable to CSV
+    $interActiveSignInsForApps = Get-SignInsInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
+    $interactiveSignInsForApps.GetEnumerator() | ForEach-Object {
+        [PSCustomObject]@{
+            AppId       = $_.Key
+            Count       = $_.Value.Count
+            DisplayName = $_.Value.DisplayName
+        }
+    } | Export-Csv -Path "C:\temp\SignInCountsInteractive.csv" -NoTypeInformation -Encoding utf8
 
-$nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterpriseApps -timeFrameInDays $timeFrameInDays
-$nonInteractiveSignIns.GetEnumerator() | ForEach-Object {
-    [PSCustomObject]@{
-        AppId       = $_.Key
-        Count       = $_.Value.Count
-        DisplayName = $_.Value.DisplayName
-    }
-} | Export-Csv -Path "C:\temp\SignInCountsNonInteractive.csv" -NoTypeInformation -Encoding utf8
+    $nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterpriseApps -timeFrameInDays $timeFrameInDays
+    $nonInteractiveSignIns.GetEnumerator() | ForEach-Object {
+        [PSCustomObject]@{
+            AppId       = $_.Key
+            Count       = $_.Value.Count
+            DisplayName = $_.Value.DisplayName
+        }
+    } | Export-Csv -Path "C:\temp\SignInCountsNonInteractive.csv" -NoTypeInformation -Encoding utf8  
+}
+
