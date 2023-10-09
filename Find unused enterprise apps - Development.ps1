@@ -131,7 +131,6 @@ function Get-SignInsNonInteractive {
         " and createdDateTime ge $($startDate.ToString('yyyy-MM-ddTHH:mm:ssZ'))" +
         " and createdDateTime le $($endDate.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
 
-   
         # Invoke a REST API GET request to fetch the count of sign-ins for the current application
         $signIns = Invoke-RestMethod -Method Get -Uri $URLSignInsForAppNonInteractive -Headers $headers
 
@@ -149,7 +148,6 @@ function Get-SignInsNonInteractive {
     return $signInCount
 }
 
-
 # Set the time frame for sign-in retrieval (e.g., 1 day)
 $timeFrameInDays = 90
 
@@ -159,7 +157,6 @@ $interActiveSignIns = Get-SignInsInteractive -Applications $enterPriseApps -time
 $nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
 
 # Function to remove inactive Enterprise Apps
-
 function Remove-InactiveEnterpriseApps {
     $RemoveableApps = $interactiveSignIns.GetEnumerator() | Where-Object { ( $_.Value.Count -eq '0' ) } | `
         ForEach-Object {
@@ -176,8 +173,9 @@ function Remove-InactiveEnterpriseApps {
     }
 }
 
+# Function to export sign-in counts to CSV files
 function Export-SignInsToCSV {
-    # Export the signInCounts hashtable to CSV
+    # Export the signInCounts hashtable to CSV for interactive sign-ins
     $interactiveSignIns.GetEnumerator() | ForEach-Object {
         [PSCustomObject]@{
             AppId       = $_.Key
@@ -186,6 +184,7 @@ function Export-SignInsToCSV {
         }
     } | Export-Csv -Path "C:\temp\SignInCountsInteractive.csv" -NoTypeInformation -Encoding utf8
 
+    # Export the signInCounts hashtable to CSV for non-interactive sign-ins
     $nonInteractiveSignIns.GetEnumerator() | ForEach-Object {
         [PSCustomObject]@{
             AppId       = $_.Key
@@ -194,4 +193,3 @@ function Export-SignInsToCSV {
         }
     } | Export-Csv -Path "C:\temp\SignInCountsNonInteractive.csv" -NoTypeInformation -Encoding utf8  
 }
-
