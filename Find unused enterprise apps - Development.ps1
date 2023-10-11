@@ -4,20 +4,28 @@
 $tenantID = $env:TENANT_ID
 $clientID = $env:CLIENT_ID_EAPPS
 $clientSecretID = $env:CLIENT_SECRET_EAPPS
+$tokenResponse = $null  # Initialize to null
+$headers = @{}  # Initialize as an empty hashtable
 
 # Authenticate to MS Graph API and get headers
-$tokenBody = @{
-    Grant_Type    = "client_credentials"
-    Scope         = "https://graph.microsoft.com/.default"
-    Client_Id     = $clientID
-    Client_Secret = $clientSecretID
-}
-$tokenResponse = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$tenantID/oauth2/v2.0/token" -Method POST -Body $tokenBody
-$headers = @{
-    "Authorization" = "Bearer $($tokenResponse.access_token)"
-    "Content-type"  = "application/json"
-}
+function Connect-toGraph {
 
+    $tokenBody = @{
+        Grant_Type    = "client_credentials"
+        Scope         = "https://graph.microsoft.com/.default"
+        Client_Id     = $clientID
+        Client_Secret = $clientSecretID
+    }
+    $tokenResponse = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$tenantID/oauth2/v2.0/token" -Method POST -Body $tokenBody
+    $global:headers = @{
+        "Authorization" = "Bearer $($tokenResponse.access_token)"
+        "Content-type"  = "application/json"
+    }
+    # Debug output
+    Write-Host "Access Token: $($tokenResponse.access_token)"
+    Write-Host "Headers: $($headers)"
+}
+Connect-toGraph
 # Function to retrieve information about Enterprise Apps from Microsoft Graph API
 function Get-EnterpriseApps {
     # Define the initial URL for fetching Enterprise Apps
@@ -154,6 +162,7 @@ $timeFrameInDays = 90
 # Retrieve Enterprise Apps and associated Sign-Ins
 $enterPriseApps = Get-EnterpriseApps
 $interActiveSignIns = Get-SignInsInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
+Connect-toGraph
 $nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
 
 # Function to remove inactive Enterprise Apps
