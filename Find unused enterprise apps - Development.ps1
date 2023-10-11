@@ -157,7 +157,7 @@ function Get-SignInsNonInteractive {
 }
 
 # Set the time frame for sign-in retrieval (e.g., 1 day)
-$timeFrameInDays = 90
+$timeFrameInDays = 10
 
 # Retrieve Enterprise Apps and associated Sign-Ins
 $enterPriseApps = Get-EnterpriseApps
@@ -167,21 +167,27 @@ $nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterPriseApps
 
 # Function to remove inactive Enterprise Apps
 function Remove-InactiveEnterpriseApps {
-    $RemoveableApps = $interactiveSignIns.GetEnumerator() | Where-Object { ( $_.Value.Count -eq '0' ) } | `
-        ForEach-Object {
-        [PSCustomObject]@{
-            AppId       = $_.Key
-            Count       = $_.Value.Count
-            DisplayName = $_.Value.DisplayName
+
+    try {
+        $RemoveableApps = $interactiveSignIns.GetEnumerator() | Where-Object { ( $_.Value.Count -eq '0' ) } | `
+            ForEach-Object {
+            [PSCustomObject]@{
+                AppId       = $_.Key
+                Count       = $_.Value.Count
+                DisplayName = $_.Value.DisplayName
+            }
         }
+        $RemoveApps = $RemoveableApps.AppId
     }
-    $RemoveApps = $RemoveableApps.AppId
+    catch {
+        Write-Error -Verbose
+    }
 
     foreach ($ServicePrincipalId in $RemoveApps) {
-        Remove-MgServicePrincipal -ServicePrincipalId $ServicePrincipalId -WhatIf
+        Remove-MgServicePrincipal -ServicePrincipalId $ServicePrincipalId
     }
 }
-
+Connect-MgGraph
 # Function to export sign-in counts to CSV files
 function Export-SignInsToCSV {
     # Export the signInCounts hashtable to CSV for interactive sign-ins
