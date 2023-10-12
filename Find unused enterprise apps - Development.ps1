@@ -165,6 +165,7 @@ $interActiveSignIns = Get-SignInsInteractive -Applications $enterPriseApps -time
 Connect-toGraph
 $nonInteractiveSignIns = Get-SignInsNonInteractive -Applications $enterPriseApps -timeFrameInDays $timeFrameInDays
 
+Connect-MgGraph
 # Function to remove inactive Enterprise Apps
 function Remove-InactiveEnterpriseApps {
 
@@ -187,7 +188,7 @@ function Remove-InactiveEnterpriseApps {
         Remove-MgServicePrincipal -ServicePrincipalId $ServicePrincipalId
     }
 }
-Connect-MgGraph
+
 # Function to export sign-in counts to CSV files
 function Export-SignInsToCSV {
     # Export the signInCounts hashtable to CSV for interactive sign-ins
