@@ -31,7 +31,8 @@ function Get-EnterpriseApps {
     # Define the initial URL for fetching Enterprise Apps
     $URLGetApplications = "https://graph.microsoft.com/beta/servicePrincipals?" +
     "`$top=300&" + # Limit the number of results per page to 300
-    "`$filter=servicePrincipalType eq 'Application' and (tags/any(tag: tag eq 'WindowsAzureActiveDirectoryIntegratedApp'))"
+    "`$filter=servicePrincipalType eq 'Application' and (tags/any(tag: tag eq 'WindowsAzureActiveDirectoryIntegratedApp'))&" +
+    "`$select=appid,id,servicePrincipalNames"
 
     # Initialize an array to store the pages of Enterprise Apps
     $appPages = @()
@@ -81,7 +82,8 @@ function Get-SignInsInteractive {
         $URLSignInsForAppInteractive = "https://graph.microsoft.com/v1.0/auditLogs/signIns?" +
         "`$filter=appId eq '$($application.appId)' " + # Filter by the application's ID
         "and createdDateTime ge $($startDate.ToString('yyyy-MM-ddTHH:mm:ssZ')) " + # Start date filter
-        "and createdDateTime le $($endDate.ToString('yyyy-MM-ddTHH:mm:ssZ'))"  # End date filter
+        "and createdDateTime le $($endDate.ToString('yyyy-MM-ddTHH:mm:ssZ'))" +
+        " and id eq '$($application.Id)'"  # End date filter
 
         try {
             # Invoke a REST API GET request to fetch the count of sign-ins for the current application
@@ -91,6 +93,7 @@ function Get-SignInsInteractive {
             $signInCount[$application.appId] = @{
                 count       = $signIns.value.Count
                 DisplayName = $application.appDisplayName
+                ID = $application.Id
             }
         }
         catch {
@@ -137,7 +140,8 @@ function Get-SignInsNonInteractive {
         "&`$filter=(signInEventTypes/any(t: t eq 'nonInteractiveUser'))" +
         " and appId eq '$($application.appId)'" +
         " and createdDateTime ge $($startDate.ToString('yyyy-MM-ddTHH:mm:ssZ'))" +
-        " and createdDateTime le $($endDate.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+        " and createdDateTime le $($endDate.ToString('yyyy-MM-ddTHH:mm:ssZ'))" +
+        " and id eq '$($application.Id)'"
 
         # Invoke a REST API GET request to fetch the count of sign-ins for the current application
         $signIns = Invoke-RestMethod -Method Get -Uri $URLSignInsForAppNonInteractive -Headers $headers
@@ -146,6 +150,7 @@ function Get-SignInsNonInteractive {
         $signInCount[$application.appId] = @{
             count       = $signIns.value.Count
             DisplayName = $application.appDisplayName
+            ID = $application.Id
         }
        
         # Introduce a delay to avoid rate limiting
@@ -157,7 +162,7 @@ function Get-SignInsNonInteractive {
 }
 
 # Set the time frame for sign-in retrieval (e.g., 1 day)
-$timeFrameInDays = 10
+$timeFrameInDays = 1
 
 # Retrieve Enterprise Apps and associated Sign-Ins
 $enterPriseApps = Get-EnterpriseApps
@@ -176,15 +181,36 @@ function Remove-InactiveEnterpriseApps {
                 AppId       = $_.Key
                 Count       = $_.Value.Count
                 DisplayName = $_.Value.DisplayName
+                Id = $_.Value.Id
             }
         }
-        $RemoveApps = $RemoveableApps.AppId
+        $RemoveApps = $RemoveableApps.Id
     }
     catch {
         Write-Error -Verbose
     }
 
     foreach ($ServicePrincipalId in $RemoveApps) {
+        Remove-MgServicePrincipal -ServicePrincipalId $ServicePrincipalId
+    }
+
+    try {
+        $RemoveableApps2 = $nonInteractiveSignIns.GetEnumerator() | Where-Object { ( $_.Value.Count -eq '0' ) } | `
+            ForEach-Object {
+            [PSCustomObject]@{
+                AppId       = $_.Key
+                Count       = $_.Value.Count
+                DisplayName = $_.Value.DisplayName
+                Id = $_.Value.id
+            }
+        }
+        $RemoveApps2 = $RemoveableApps2.Id
+    }
+    catch {
+        Write-Error -Verbose
+    }
+
+    foreach ($ServicePrincipalId in $RemoveApps2) {
         Remove-MgServicePrincipal -ServicePrincipalId $ServicePrincipalId
     }
 }
@@ -197,6 +223,7 @@ function Export-SignInsToCSV {
             AppId       = $_.Key
             Count       = $_.Value.Count
             DisplayName = $_.Value.DisplayName
+            Id = $_.Value.id
         }
     } | Export-Csv -Path "C:\temp\SignInCountsInteractive.csv" -NoTypeInformation -Encoding utf8
 
@@ -206,6 +233,7 @@ function Export-SignInsToCSV {
             AppId       = $_.Key
             Count       = $_.Value.Count
             DisplayName = $_.Value.DisplayName
+            Id = $_.Value.id
         }
     } | Export-Csv -Path "C:\temp\SignInCountsNonInteractive.csv" -NoTypeInformation -Encoding utf8  
 }
