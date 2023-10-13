@@ -104,7 +104,7 @@ function Get-SignInsInteractive {
             $signInCount[$application.appId] = @{
                 count       = $signIns.value.Count
                 DisplayName = $application.appDisplayName
-                ID = $application.Id
+                ID          = $application.Id
             }
         }
         catch {
@@ -161,7 +161,7 @@ function Get-SignInsNonInteractive {
         $signInCount[$application.appId] = @{
             count       = $signIns.value.Count
             DisplayName = $application.appDisplayName
-            ID = $application.Id
+            ID          = $application.Id
         }
        
         # Introduce a delay to avoid rate limiting
@@ -193,7 +193,7 @@ function Remove-InactiveEnterpriseApps {
                 AppId       = $_.Key
                 Count       = $_.Value.Count
                 DisplayName = $_.Value.DisplayName
-                Id = $_.Value.Id
+                Id          = $_.Value.Id
             }
         }
         $RemoveApps = $RemoveableApps.Id
@@ -217,7 +217,7 @@ function Remove-InactiveEnterpriseApps {
                 AppId       = $_.Key
                 Count       = $_.Value.Count
                 DisplayName = $_.Value.DisplayName
-                Id = $_.Value.id
+                Id          = $_.Value.id
             }
         }
         $RemoveApps2 = $RemoveableApps2.Id
@@ -243,7 +243,7 @@ function Export-SignInsToCSV {
             AppId       = $_.Key
             Count       = $_.Value.Count
             DisplayName = $_.Value.DisplayName
-            Id = $_.Value.id
+            Id          = $_.Value.id
         }
     } | Export-Csv -Path "C:\temp\SignInCountsInteractive.csv" -NoTypeInformation -Encoding utf8
 
@@ -253,7 +253,7 @@ function Export-SignInsToCSV {
             AppId       = $_.Key
             Count       = $_.Value.Count
             DisplayName = $_.Value.DisplayName
-            Id = $_.Value.id
+            Id          = $_.Value.id
         }
     } | Export-Csv -Path "C:\temp\SignInCountsNonInteractive.csv" -NoTypeInformation -Encoding utf8  
 }
