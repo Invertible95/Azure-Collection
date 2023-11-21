@@ -1,9 +1,11 @@
 ###In Development###
 # Install the required module if not already installed
 # Install-Module -Name Microsoft.Graph.Authentication -Force -AllowClobber
+# Install-Module -Name ImportExcel -Force -Scope CurrentUser
 
-# Import the module
+# Import the required modules
 Import-Module Microsoft.Graph.Authentication
+Import-Module ImportExcel
 
 # Connect to Microsoft Graph
 Connect-MgGraph -Scopes "Application.ReadWrite.All"
@@ -24,7 +26,7 @@ $retArr = @()
 foreach ($Application in $allApplications) {
     
 
-    $SecretURI = "https://graph.microsoft.com/v1.0/applications/$($Application.Id)/passwordCredentials"
+    $SecretURI = "https://graph.microsoft.com/v1.0/applications/$($Application.id)/passwordCredentials"
     try {
         $FindSecretDates = Invoke-MgGraphRequest -Method GET -Uri $SecretURI
     }
@@ -40,18 +42,17 @@ foreach ($Application in $allApplications) {
         
         if ($expireDate -ne $null) {
             $daysUntilExpiry = ($expiryDate - (Get-Date).Date).Days
-            if ($daysUntilExpiry -le 30) {
+            if ($daysUntilExpiry -gt 30) {
                 $myObject = [PSCustomObject]@{
                     ApplicationName = $($Application.displayName)
+                    "Object/app ID" = $($Application.id)
+                    "Secret ID"     = $($FindSecretDates.value.keyId)
                     ExpiryDate      = $($expiryDate.ToString("yyyy-MM-dd"))
                 }
-                #$myObject = New-Object -TypeName psobject
-                #Add-Member -InputObject $myObject -MemberType NoteProperty -Name ApplicationName -Value $($Application.displayName)
-                #Add-Member -InputObject $myObject -MemberType NoteProperty -Name ExpiryDate -Value $($expiryDate.ToString("yyyy-MM-dd"))
                 $retArr += $myObject
             } 
         } 
     }
-
 }   
-$retArr #| Export-Excel -Path "C:\temp\certExpires.xlsx" -Append
+$excelDate = (Get-Date -Format "yyyy-MM-dd")
+$retArr | Export-Excel -Path "C:\temp\Report $excelDate.xlsx" -Append -Title "App registration secrets report" -TitleBold -TitleSize 14 -AutoSize -FreezeTopRow -MaxAutoSizeRows 12 
