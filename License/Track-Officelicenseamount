@@ -1,0 +1,153 @@
+<#
+SYNOPSIS.
+    This script interacts with Microsoft Graph to retrieve license information for Microsoft 365 and Office 365 subscriptions.
+
+DESCRIPTION.
+    The script converts the raw license data into a human-readable format, checks for license usage conditions, 
+    and optionally exports the information to an Excel file or sends an email notification.
+    In this form it is meant to be used with an Azure Automation(AA) Account to be run on a schedule. This is particularly useful in larger organizations.
+    It is customizable to run without using an access token aswell.
+
+MODULES.
+    If not already installed, run Install-Module -Name "Name of module"
+    Microsoft.Graph.Authentication, Version "2.11.1"
+    Microsoft.Graph.Users.Actions, Version "2.11.1"
+    ImportExcel, Version "7.8.6"
+    (Probably works with older aswell but it is tested with this)
+
+NOTES.
+    File Name      : Track-Officelicenseamount.ps1
+    Author         : Victor Uhrberg
+    Prerequisite   : Run and tested Powershell 7.4.0, also works with 5.1, see MODULES for additional requirements.
+    Tested on      : Windows 10/11, PowerShell 7.4.0
+
+MISC.
+    Microsoft 365 E3 = SPE_E3
+    Microsoft 365 F3 = SPE_F1
+    Office 365 E1    = STANDARDPACK
+    "EMS"            = "Enterprise Mobility + Security E3"
+    Enabled          = Bought licenses
+    ConsumedUnits    = Assigned Licenses
+    SkuPartNumber    = Name for license
+
+    If you need to add or if Microsoft has added licenses and you get different results than the above specified:
+    Run line 77-92 and output $listlicenses.skupartNumber and count the place for your license, start with 0.
+    On line 94 you can then change or add numbers to represent new licenses.
+
+Comments:
+- Lines 57-60: Connects to Azure AD using a managed identity and retrieves the access token.
+- Lines 62-63: Connects to Microsoft Graph using the obtained access token and specifies required scopes.
+
+- Lines 65-146: Defines the function 'Get-LicenseVolumes' to retrieve, process, and display license information.
+  - Parameters: 'exportExcel' and 'sendMail' are optional switches.
+  - Retrieves license data from Microsoft Graph, maps SKU codes to human-readable names, and processes the data.
+  - Checks conditions for sending an email notification based on license usage.
+  - If '-exportExcel' is specified, exports content of $fullresults to excelfile in 'C:\Temp'
+  - If '-sendMail' is specified, sends an email notification to predefined recipients using Microsoft Graph.
+  - The missing parts include the definition and assignment of the '$mail' variable and the initial value for the '$Message' variable.
+
+- Optional:
+  - If '-exportExcel' is specified, exports content of $fullresults to excelfile in 'C:\Temp'
+  - If '-sendMail' is specified, sends an email notification to predefined recipients using Microsoft Graph.
+
+- Example:
+  - Get-LicenseVolumes -sendMail
+  #Only sends email to assigned email adresses with results if applicable.
+  - Get-LicenseVolumes -sendMail -exportExcel 
+  #Sends email to assigned email adresses with results and exports to an excel file locally.
+  - If you're testing, run below connect command
+    Connect-MgGraph -Scopes "Organization.Read.All, Mail.Send"
+#>
+
+# Connect to Azure AD using a managed identity
+Disable-AzContextAutosave -Scope Process
+$azureContext = Connect-AzAccount -Identity 
+$token = (Get-AzAccessToken -ResourceTypeName MSGraph).token | ConvertTo-SecureString -AsPlainText -Force
+
+# Connect to Microsoft Graph using the access token from above
+Connect-MgGraph -AccessToken $token
+
+function Get-LicenseVolumes {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter (Mandatory = $false)]
+        [switch]$exportExcel,
+        [Parameter (Mandatory = $false)]
+        [switch]$sendMail
+    )
+    $fullResults = @()
+
+    $conversionTable = @{
+        "SPE_E3"       = "Microsoft 365 E3"
+        "SPE_F1"       = "Microsoft 365 F3"
+        "STANDARDPACK" = "Office 365 E1"
+        "EMS"          = "Enterprise Mobility + Security E3"
+    }
+
+    try {
+        $listLicenses = Get-MgSubscribedSku | Select SkuPartNumber, ConsumedUnits, ServicePlans -ExpandProperty PrepaidUnits
+    }
+    catch {
+        Write-Output "Error: $_.ErrorDetails"
+        return
+    }
+    
+    foreach ($index in (2, 6, 10, 28)) {
+        $Name = $listLicenses[$index].SkuPartNumber
+        $Used = $listLicenses[$index].ConsumedUnits
+        $Bought = $listLicenses[$index].Enabled
+        
+        if (($Used -ge ($Bought - 15)) -or ($Used -eq $Bought)) {
+            $result = [PSCustomObject]@{
+                Name           = $conversionTable[$Name]
+                "Total Volume" = $Bought
+                Assigned       = $Used
+            }
+            $fullResults += $result
+        }
+    }
+    $fullResults | ft -AutoSize
+
+    if ($exportExcel) {
+        $excelData = $fullResults
+        $excelData | Export-Excel -Path "C:\Temp\M365 & O365 Volume licenses.xlsx" -Title "M365 & O365 Volume licenses" -TitleSize 16 -FreezeTopRow -AutoFilter -AutoSize
+    }
+
+    if ($fullResults.Count -eq 0) {
+        Write-Host "Condition for sending email not met. Not sending email"
+        break
+    }
+    elseif ($sendMail) {
+        # Define email parameters
+        $Message = $Message + ($fullResults | ConvertTo-Html -As Table -Fragment)
+        $mailaddress = "itservice@falkenberg.se"
+        $params = @{
+            Message         = @{
+                Subject      = "Microsoft 365 license count"
+                Body         = @{
+                    ContentType = "HTML"
+                    Content     = "<u>Warning! The following Microsoft 365 licenses are about to run out.</u> $Message <a href=https://portal.azure.com/#view/Microsoft_AAD_IAM/LicensesMenuBlade/~/Products>Click here to show licenses in Azure</a>"
+                }
+                ToRecipients = @(
+                    @{
+                        EmailAddress = @{
+                            Address = "$mailaddress"
+                        }
+                    }
+                )        
+                CcRecipients = @(
+                    @{
+                        EmailAddress = @{
+                            Address = "torbjorn.larsson@falkenberg.se"
+                        }
+                    }
+                )
+            }
+            SaveToSentItems = "false"
+        }
+        # Send email notification using Microsoft Graph to helpdesk
+        Send-MgUserMail -UserId $mailaddress -BodyParameter $params
+    }
+
+}
+Get-LicenseVolumes -sendMail
