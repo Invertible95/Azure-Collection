@@ -1,18 +1,20 @@
 
-# Connect to Azure AD
-Connect-AzureAD
+# Revoke all Azure sessions for all users based on UPN
 
-# Get all enabled users with email addresses that end with @pol.domain.se
+Connect-MgGraph -Scopes User.RevokeSessions.All 
+
 $users = Get-ADUser -Filter { UserPrincipalName -like "*@pol.falkenberg.se" -and Enabled -eq $true }
 
-Write-Host "Found "$users.count" users." -ForegroundColor Green
+$uResults = $users | Select UserPrincipalName
+$UPN = $uResults.UserPrincipalName
+Write-Host "Found:"$users.Count"Accounts" -ForegroundColor Green
 
-$continue = Read-Host "Type Y to continue"
-
-if ($continue -ne "Y") {
-    return
+try {
+    foreach ($UPN in $UPN) {
+        Revoke-MgUserSignInSession -UserId $UPN -WhatIf
+    }
+    Write-Host "All sessions have been revoked" -ForegroundColor Green
 }
-# Sign out each user from all sessions in Azure AD
-foreach ($user in $users) {
-    Revoke-AzureADUserAllRefreshToken -ObjectId $user.UserPrincipalName -WhatIf
+catch {
+    Write-Error $_
 }
